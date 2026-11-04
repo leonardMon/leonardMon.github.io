@@ -401,7 +401,7 @@ function confirma() {
       arataRez(r); incarca();
     }, function (e) { el('da').textContent = '✅ CONFIRM'; el('da').disabled = false; eroare(e); });
   };
-  if (st.actiune === 'VENIT' || st.actiune === 'PLECAT') fotografiaza().then(trimite); else trimite('');
+  if (st.actiune === 'VENIT') fotografiaza().then(trimite); else trimite('');  // poza doar dimineața, la venire
 }
 
 /* ---------- rezultat + liste ---------- */
