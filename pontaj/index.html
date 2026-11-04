@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<title>Pontaj șantier</title>
+<meta name="theme-color" content="#020617">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --line:#334155; --txt:#f1f5f9; --mut:#94a3b8; --ok:#16a34a; --bad:#dc2626; --acc:#2563eb; --warn:#f59e0b; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:16px/1.35 system-ui,-apple-system,Roboto,Arial,sans-serif; }
+  header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:#020617; border-bottom:1px solid var(--line); }
+  header b { font-size:18px; } #ceas { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; }
+  main { padding:12px; max-width:900px; margin:0 auto; }
+  .row { display:flex; gap:12px; align-items:stretch; }
+  #camWrap { position:relative; width:150px; min-width:150px; height:150px; border-radius:14px; overflow:hidden; background:#000; border:2px solid var(--line); }
+  #cam { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  #camMsg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; font-size:12px; color:var(--mut); padding:8px; }
+  #mic { flex:1; border:0; border-radius:18px; background:var(--acc); color:#fff; font-size:22px; font-weight:700; padding:14px; min-height:150px; }
+  #mic.asculta { background:var(--bad); animation:puls 1s infinite; }
+  @keyframes puls { 50% { filter:brightness(1.3); } }
+  #mic small { display:block; font-size:14px; font-weight:400; opacity:.9; margin-top:6px; }
+  .txt { display:flex; gap:8px; margin-top:12px; }
+  .txt input { flex:1; font-size:18px; padding:12px; border-radius:12px; border:1px solid var(--line); background:var(--card); color:var(--txt); }
+  button.b { border:0; border-radius:12px; padding:12px 14px; font-size:16px; font-weight:600; background:var(--card); color:var(--txt); border:1px solid var(--line); }
+  button.p { background:var(--acc); border-color:var(--acc); color:#fff; }
+  button.ok { background:var(--ok); border-color:var(--ok); color:#fff; }
+  button.no { background:transparent; color:var(--mut); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-top:12px; }
+  .grid button { min-height:56px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-top:12px; }
+  .card h3 { margin:0 0 8px; font-size:16px; color:var(--mut); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  #conf .mare { font-size:26px; font-weight:800; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  .chip { padding:10px 12px; border-radius:999px; background:#0b1220; border:1px solid var(--line); color:var(--txt); font-size:16px; }
+  .chip.sel { background:var(--acc); border-color:var(--acc); }
+  #rez { display:none; margin-top:12px; border-radius:18px; padding:22px; font-size:24px; font-weight:800; text-align:center; }
+  #rez.ok { display:block; background:var(--ok); } #rez.bad { display:block; background:var(--bad); }
+  ul.lista { list-style:none; margin:0; padding:0; } ul.lista li { padding:8px 0; border-bottom:1px solid var(--line); }
+  ul.lista li small { color:var(--mut); }
+  .ascuns { display:none !important; }
+  #auzit { color:var(--mut); font-style:italic; margin:4px 0 0; min-height:20px; }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:10px; } .bar i { display:block; height:100%; background:var(--ok); width:0; transition:width linear; }
+  input.cauta { width:100%; font-size:18px; padding:10px; border-radius:10px; border:1px solid var(--line); background:#0b1220; color:var(--txt); margin-top:6px; }
+  #err { color:#fecaca; background:#7f1d1d; padding:12px; border-radius:12px; margin-top:12px; display:none; }
+</style>
+</head>
+<body>
+<header><b>🏗️ <span id="santier">Șantier</span></b><span id="ceas">--:--</span></header>
+<main>
+  <div class="row">
+    <div id="camWrap"><video id="cam" autoplay playsinline muted></video><div id="camMsg">Pornesc camera…</div></div>
+    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat flexul” • „…am nevoie de discuri”</small></button>
+  </div>
+  <p id="auzit"></p>
+  <div class="txt"><input id="text" placeholder="sau scrie / dictează cu tastatura aici…" autocomplete="off"><button class="b p" id="trimite">OK</button></div>
+
+  <div id="err"></div>
+  <div id="rez"></div>
+
+  <div id="conf" class="card ascuns">
+    <h3>Am înțeles</h3>
+    <div class="mare" id="cNume" title="apasă pentru alt nume">—</div>
+    <div class="chips" id="cNumeAlt"></div>
+    <input class="cauta ascuns" id="cNumeCauta" placeholder="caută numele…">
+    <div class="chips ascuns" id="cNumeLista"></div>
+    <div class="mare" id="cAct" style="color:#93c5fd">—</div>
+    <div id="cObiectWrap" class="ascuns">
+      <div class="chips" id="cObiect"></div>
+      <input class="cauta" id="cObiectText" placeholder="ce anume?">
+    </div>
+    <div class="row" style="margin-top:12px"><button class="b ok" id="da" style="flex:2;font-size:22px">✅ CONFIRM</button><button class="b no" id="nu" style="flex:1">✖ Anulează</button></div>
+    <div class="bar"><i id="barI"></i></div>
+  </div>
+
+  <div class="card">
+    <h3>Sau alege acțiunea</h3>
+    <div class="grid" id="actiuni"></div>
+  </div>
+
+  <div class="card"><h3>🛒 De cumpărat (cereri deschise)</h3><ul class="lista" id="lMat"><li><small>—</small></li></ul></div>
+  <input type="file" id="fotoInput" accept="image/*" capture="user" class="ascuns">
+</main>
+
+<script>
+var CHEIE = '', SANTIER = '', D = { oameni: [], scule: [], materiale: [] };
+var stare = null, timer = null, stream = null, rec = null;
+
+var ACT = {
+  VENIT: { t: '✅ AM VENIT', obiect: false },
+  PLECAT: { t: '🏁 AM PLECAT', obiect: false },
+  LUAT: { t: '🔧 AM LUAT SCULA', obiect: 'scula' },
+  ADUS: { t: '↩️ AM ADUS SCULA', obiect: 'scula' },
+  UTILAJ: { t: '🛢️ AM GRESAT ȘI ȘTERS UTILAJUL', obiect: false },
+  MATERIAL_CERUT: { t: '🛒 AM NEVOIE DE', obiect: 'material' },
+  MATERIAL_PRIMIT: { t: '📦 AM PRIMIT MATERIALUL', obiect: 'materialDeschis' }
+};
+
+/* ---------- legătura cu tabelul (Apps Script) ---------- */
+// prima deschidere: ...index.html?api=ADRESA_EXEC&k=CHEIA&s=Șantier  → se memorează pe telefon
+var Q = new URLSearchParams(location.search), API = '';
+function mem(k, v) { try { if (v) localStorage.setItem(k, v); return localStorage.getItem(k) || ''; } catch (e) { return v || ''; } }
+API = mem('pontaj_api', Q.get('api'));
+CHEIE = mem('pontaj_k', Q.get('k'));
+SANTIER = mem('pontaj_s', Q.get('s'));
+
+var server = {
+  init: function (ok, fail) {
+    fetch(API + '?api=init&k=' + encodeURIComponent(CHEIE) + '&s=' + encodeURIComponent(SANTIER))
+      .then(function (r) { return r.json(); })
+      .then(function (j) { j.ok ? ok(j.r) : fail(new Error(j.eroare)); }).catch(fail);
+  },
+  trimite: function (p, ok, fail) {
+    fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: CHEIE, p: p }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { j.ok ? ok(j.r) : fail(new Error(j.eroare)); }).catch(fail);
+  }
+};
+
+/* ---------- pornire ---------- */
+if (!API || !CHEIE) arataEroare('Lipsește legătura cu tabelul. Deschide o dată adresa completă: …?api=ADRESA_APLICATIEI&k=CHEIA');
+else incarca();
+setInterval(function () { var d = new Date(); el('ceas').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()); }, 1000);
+try { navigator.wakeLock && navigator.wakeLock.request('screen'); } catch (e) {}
+document.addEventListener('visibilitychange', function () { try { if (!document.hidden && navigator.wakeLock) navigator.wakeLock.request('screen'); } catch (e) {} });
+
+function incarca() {
+  server.init(function (r) {
+    D = r; SANTIER = r.santier; el('santier').textContent = 'Șantier ' + r.santier;
+    randeazaListe();
+  }, eroare);
+}
+
+Object.keys(ACT).forEach(function (k) {
+  var b = document.createElement('button'); b.className = 'b'; b.textContent = ACT[k].t;
+  b.onclick = function () { porneste({ nume: null, candidati: [], actiune: k, obiectText: '', text: '' }); };
+  el('actiuni').appendChild(b);
+});
+
+/* ---------- camera ---------- */
+(function () {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { el('camMsg').textContent = 'Fără cameră live – poza se face la confirmare'; return; }
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
+    .then(function (s) { stream = s; el('cam').srcObject = s; el('camMsg').textContent = ''; })
+    .catch(function () { el('camMsg').textContent = 'Camera live blocată – poza se face la confirmare'; });
+})();
+
+function fotografiaza() {
+  return new Promise(function (resolve) {
+    var v = el('cam');
+    if (stream && v.videoWidth) {
+      var c = document.createElement('canvas'); c.width = 480; c.height = Math.round(480 * v.videoHeight / v.videoWidth);
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      resolve(c.toDataURL('image/jpeg', 0.7)); return;
+    }
+    var inp = el('fotoInput');
+    inp.value = '';
+    inp.onchange = function () {
+      var f = inp.files[0]; if (!f) return resolve('');
+      var img = new Image(), url = URL.createObjectURL(f);
+      img.onload = function () {
+        var c = document.createElement('canvas'), w = 480; c.width = w; c.height = Math.round(w * img.height / img.width);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); resolve(c.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = function () { resolve(''); };
+      img.src = url;
+    };
+    inp.click();
+  });
+}
+
+/* ---------- voce ---------- */
+var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+el('mic').onclick = function () {
+  if (!SR) { el('text').focus(); arataEroare('Recunoașterea vocală nu e disponibilă aici – apasă pe 🎤 de pe tastatură și dictează în câmpul de text.'); return; }
+  if (rec) { rec.stop(); return; }
+  rec = new SR(); rec.lang = 'ro-RO'; rec.interimResults = true; rec.maxAlternatives = 1;
+  el('mic').classList.add('asculta');
+  rec.onresult = function (e) {
+    var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+    el('auzit').textContent = '„' + t + '”';
+    if (e.results[e.results.length - 1].isFinal) intelege(t);
+  };
+  rec.onerror = function (e) { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { el('text').focus(); arataEroare('Microfonul nu e permis aici – folosește 🎤 de pe tastatură în câmpul de text.'); } };
+  rec.onend = function () { rec = null; el('mic').classList.remove('asculta'); };
+  try { rec.start(); } catch (e) { rec = null; el('mic').classList.remove('asculta'); }
+};
+el('trimite').onclick = function () { var t = el('text').value.trim(); if (t) { el('auzit').textContent = '„' + t + '”'; intelege(t); el('text').value = ''; } };
+el('text').addEventListener('keydown', function (e) { if (e.key === 'Enter') el('trimite').click(); });
+
+/* ---------- înțelegere text ---------- */
+var REG = [
+  ['UTILAJ', /(gresat|uns|gresare|ungere).*(sters|curatat|spalat)|(sters|curatat|spalat).*(gresat|uns)|\butilaj(ul)?\b/],
+  ['PLECAT', /(terminat programul|gata pe azi|gata programul)/],
+  ['MATERIAL_PRIMIT', /\b(am primit|a venit materialul|au venit|a sosit|au sosit|am primit materialul)\b/],
+  ['MATERIAL_CERUT', /\b(am nevoie( de)?|avem nevoie( de)?|imi trebuie|ne trebuie|ne lipseste|ne lipsesc|imi lipseste|lipseste|lipsesc|cumparati( mi| ne)?|sa (mi|ne) (cumparati|luati|aduceti)|comandati|cer)\b/],
+  ['ADUS', /\b(am adus|aduc inapoi|am returnat|returnez|am pus inapoi|am predat|predau|am lasat inapoi)\b/],
+  ['LUAT', /\b(am luat|iau|imprumut|am imprumutat|scot|am scos)\b/],
+  ['PLECAT', /\b(am plecat|plec|plecat|ies|am iesit|la revedere|ma duc acasa)\b/],
+  ['VENIT', /\b(am venit|am ajuns|venit|sosit|am intrat|intru|bun[ae] dimineata|incep)\b/]
+];
+
+function intelege(text) {
+  var n = norm(text), act = null, poz = -1, lung = 0;
+  for (var i = 0; i < REG.length; i++) { var m = n.match(REG[i][1]); if (m) { act = REG[i][0]; poz = m.index; lung = m[0].length; break; } }
+  var inainte = poz > 0 ? n.slice(0, poz) : n, dupa = poz >= 0 ? n.slice(poz + lung).trim() : '';
+  dupa = dupa.replace(/^(de|cu|la|pe|un|o|niste|si)\s+/, '');
+  if (act === 'MATERIAL_CERUT') dupa = text.trim().split(/\s+/).slice(-dupa.split(' ').filter(Boolean).length).join(' ');
+  var cand = cautaOm(inainte.trim() ? inainte : n);
+  if (!cand.length && poz >= 0) cand = cautaOm(n);
+  porneste({ nume: cand.length === 1 || (cand.length > 1 && cand[0].s > cand[1].s) ? cand[0].o.nume : null, candidati: cand.slice(0, 6), actiune: act, obiectText: dupa, text: text });
+}
+
+function cautaOm(t) {
+  var tok = t.split(' ').filter(Boolean), rez = [];
+  D.oameni.forEach(function (o) {
+    var nn = norm(o.nume), parti = nn.split(' '), s = 0;
+    if (t.indexOf(nn) >= 0 || t.indexOf(parti.slice().reverse().join(' ')) >= 0) s = 100;
+    String(o.porecle || '').split(',').map(norm).filter(Boolean).forEach(function (p) { if ((' ' + t + ' ').indexOf(' ' + p + ' ') >= 0) s = Math.max(s, 90); });
+    if (!s) {
+      if (tok.indexOf(parti[0]) >= 0) s += 10;
+      parti.slice(1).forEach(function (p) { if (tok.indexOf(p) >= 0) s += 6; });
+    }
+    if (s && SANTIER && norm(o.santier) === norm(SANTIER)) s += 1;
+    if (s) rez.push({ o: o, s: s });
+  });
+  return rez.sort(function (a, b) { return b.s - a.s; });
+}
+
+function cautaObiect(tip, t) {
+  var lista = [];
+  if (tip === 'scula') lista = D.scule.map(function (x) {
+    return { id: x.id, txt: x.id + ' · ' + x.den + (x.model ? ' – ' + x.model : '') + ' · 📍' + (x.loc || '?') + (x.laCine ? ' · 👷 ' + x.laCine : ''),
+             cheie: x.id + ' ' + String(+String(x.id).replace(/\D/g, '')) + ' ' + x.den + ' ' + x.model + ' ' + x.cat + ' ' + x.serie,
+             bonus: (stare && stare.actiune === 'ADUS' ? (x.laCine && stare.nume && norm(x.laCine) === norm(stare.nume) ? 3 : (x.laCine ? 1 : 0))
+                                                        : (norm(x.loc) === norm(SANTIER) ? 1 : 0) - (x.laCine ? 1 : 0)) };
+  });
+  if (tip === 'materialDeschis') lista = D.materiale.map(function (x) { return { id: x.rand, txt: x.material + ' (' + x.nume + ', ' + x.data + ')', cheie: x.material }; });
+  var q = norm(t).split(' ').filter(function (w) { return w.length >= 3 || /\d/.test(w); });
+  return lista.map(function (x) {
+    var k = ' ' + norm(x.cheie) + ' ', s = 0;
+    q.forEach(function (w) { if (k.indexOf(' ' + w) >= 0) s += 2; else if (w.length >= 5 && k.indexOf(w.slice(0, 4)) >= 0) s += 1; });
+    return { x: x, s: s, b: x.bonus || 0 };
+  }).filter(function (a) { return a.s > 0 || (!q.length && (tip !== 'scula' || a.b >= 3)); })
+    .map(function (a) { if (a.s > 0) a.s += a.b * 0.5; return a; }).sort(function (a, b) { return b.s - a.s; });
+}
+
+/* ---------- confirmare ---------- */
+function porneste(st) {
+  ascundeRez(); stare = st; stare.obiect = null; opresteTimer();
+  el('conf').classList.remove('ascuns');
+  if (!st.actiune) { stare.actiune = null; }
+  randeazaConf();
+  window.scrollTo({ top: el('conf').offsetTop - 10, behavior: 'smooth' });
+}
+
+function randeazaConf() {
+  var st = stare;
+  el('cNume').textContent = st.nume || 'Cine ești? Alege numele:';
+  var alt = el('cNumeAlt'); alt.innerHTML = '';
+  (st.candidati || []).forEach(function (c) {
+    var b = chip(c.o.nume, st.nume === c.o.nume, function () { st.nume = c.o.nume; randeazaConf(); });
+    alt.appendChild(b);
+  });
+  var arataLista = !st.nume || !(st.candidati || []).length;
+  el('cNumeCauta').classList.toggle('ascuns', !arataLista && !!st.nume);
+  el('cNumeLista').classList.toggle('ascuns', !arataLista && !!st.nume);
+  listaNume();
+  el('cAct').textContent = st.actiune ? ACT[st.actiune].t : '❓ Ce ai făcut? Alege mai jos';
+  var tip = st.actiune && ACT[st.actiune].obiect;
+  el('cObiectWrap').classList.toggle('ascuns', !tip);
+  if (tip) {
+    if (!el('cObiectText').value && st.obiectText) el('cObiectText').value = st.obiectText;
+    el('cObiectText').placeholder = { scula: 'ce sculă? (nume, model sau nr. din inventar)', material: 'ce material / cât?', materialDeschis: 'ce material ai primit?' }[tip];
+    var box = el('cObiect'); box.innerHTML = '';
+    if (tip !== 'material' && tip !== 'text') {
+      var r = cautaObiect(tip, el('cObiectText').value).slice(0, 8);
+      if (!st.obiect && r.length && (r.length === 1 || r[0].s > r[1].s) && r[0].s > 0) st.obiect = r[0].x;
+      r.forEach(function (a) { box.appendChild(chip(a.x.txt, st.obiect && st.obiect.id === a.x.id, function () { st.obiect = a.x; randeazaConf(); })); });
+      if (!r.length) box.innerHTML = '<small style="color:#fca5a5">' + (tip === 'scula' ? 'Nu găsesc scula în inventar – scrie numele, modelul sau numărul (ex. 46).' : 'Nimic deschis pe listă.') + '</small>';
+    }
+  }
+  var gata = st.nume && st.actiune && (!tip || (tip === 'scula' && (st.obiect || el('cObiectText').value.trim())) ||
+             (tip === 'material' && el('cObiectText').value.trim()) || (tip === 'materialDeschis' && st.obiect));
+  el('da').disabled = !gata; el('da').style.opacity = gata ? 1 : .4;
+  opresteTimer();
+  if (gata && (st.candidati || []).length && st.text) pornesteTimer(5);
+}
+
+function listaNume() {
+  var q = norm(el('cNumeCauta').value), box = el('cNumeLista'); box.innerHTML = '';
+  D.oameni.filter(function (o) { return !q || norm(o.nume + ' ' + o.porecle).indexOf(q) >= 0; })
+    .sort(function (a, b) { return (norm(b.santier) === norm(SANTIER)) - (norm(a.santier) === norm(SANTIER)) || a.nume.localeCompare(b.nume); })
+    .slice(0, 40).forEach(function (o) { box.appendChild(chip(o.nume, stare && stare.nume === o.nume, function () { stare.nume = o.nume; randeazaConf(); })); });
+}
+el('cNumeCauta').oninput = listaNume;
+el('cNume').onclick = function () { el('cNumeCauta').classList.remove('ascuns'); el('cNumeLista').classList.remove('ascuns'); listaNume(); el('cNumeCauta').focus(); };
+el('cObiectText').oninput = function () { stare.obiect = null; randeazaConf(); };
+el('nu').onclick = function () { opresteTimer(); el('conf').classList.add('ascuns'); stare = null; el('cObiectText').value = ''; };
+el('da').onclick = confirma;
+// acțiunile din grilă completează acțiunea curentă dacă e deschisă confirmarea
+Array.prototype.forEach.call(el('actiuni').children, function (b, i) {
+  var k = Object.keys(ACT)[i];
+  b.onclick = function () {
+    if (stare && !el('conf').classList.contains('ascuns')) { stare.actiune = k; stare.obiect = null; randeazaConf(); }
+    else porneste({ nume: null, candidati: [], actiune: k, obiectText: '', text: '' });
+  };
+});
+
+function pornesteTimer(sec) {
+  var i = el('barI'); i.style.transition = 'none'; i.style.width = '0';
+  setTimeout(function () { i.style.transition = 'width ' + sec + 's linear'; i.style.width = '100%'; }, 30);
+  timer = setTimeout(confirma, sec * 1000);
+}
+function opresteTimer() { if (timer) clearTimeout(timer); timer = null; var i = el('barI'); i.style.transition = 'none'; i.style.width = '0'; }
+
+function confirma() {
+  opresteTimer();
+  if (!stare || el('da').disabled) return;
+  var st = stare, tip = ACT[st.actiune].obiect, txt = el('cObiectText').value.trim();
+  var p = { santier: SANTIER, nume: st.nume, actiune: st.actiune, text: st.text || '' };
+  if (tip === 'scula') { p.sculaText = txt || (st.obiect ? st.obiect.txt : ''); if (st.obiect) { p.sculaId = st.obiect.id; p.sculaDen = st.obiect.txt.split(' · ')[1] || st.obiect.txt; } }
+  if (tip === 'material') p.materialText = txt;
+  if (tip === 'materialDeschis') { p.materialText = txt || (st.obiect && st.obiect.txt); if (st.obiect) p.materialRand = st.obiect.id; }
+  el('da').disabled = true; el('da').textContent = '⏳ Salvez…';
+  var trimite = function (foto) {
+    p.foto = foto || '';
+    server.trimite(p, function (r) {
+      el('da').textContent = '✅ CONFIRM'; el('conf').classList.add('ascuns'); el('cObiectText').value = ''; stare = null;
+      arataRez(r); incarca();
+    }, function (e) { el('da').textContent = '✅ CONFIRM'; el('da').disabled = false; eroare(e); });
+  };
+  if (st.actiune === 'VENIT' || st.actiune === 'PLECAT') fotografiaza().then(trimite); else trimite('');
+}
+
+/* ---------- rezultat + liste ---------- */
+function arataRez(r) {
+  var b = el('rez'); b.className = r.rosu || !r.ok ? 'bad' : 'ok'; b.textContent = r.mesaj; el('err').style.display = 'none';
+  vorbeste(r.voce || r.mesaj);
+  clearTimeout(b._t); b._t = setTimeout(ascundeRez, 9000);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function ascundeRez() { el('rez').className = ''; }
+
+function randeazaListe() {
+  var m = el('lMat'); m.innerHTML = '';
+  (D.materiale || []).forEach(function (x) { var li = document.createElement('li'); li.innerHTML = esc(x.material) + ' <small>– ' + esc(x.nume) + ', ' + esc(x.data) + '</small>'; m.appendChild(li); });
+  if (!m.children.length) m.innerHTML = '<li><small>Nimic de cumpărat</small></li>';
+}
+
+function vorbeste(t) {
+  try { var u = new SpeechSynthesisUtterance(String(t).replace(/[⚠️✔✅📷]/g, '')); u.lang = 'ro-RO'; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+}
+function eroare(e) { arataEroare((e && e.message) || String(e)); }
+function arataEroare(t) { var x = el('err'); x.textContent = t; x.style.display = 'block'; clearTimeout(x._t); x._t = setTimeout(function () { x.style.display = 'none'; }, 10000); }
+
+/* ---------- utilitare ---------- */
+function el(id) { return document.getElementById(id); }
+function pad(n) { return ('0' + n).slice(-2); }
+function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+function chip(t, sel, fn) { var b = document.createElement('button'); b.className = 'chip' + (sel ? ' sel' : ''); b.textContent = t; b.onclick = fn; return b; }
+</script>
+</body>
+</html>
