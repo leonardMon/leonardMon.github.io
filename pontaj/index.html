@@ -46,7 +46,7 @@
 </style>
 </head>
 <body>
-<header><b>🏗️ <span id="santier">Șantier</span></b><span id="ceas">--:--</span></header>
+<header><b>🏗️ <span id="santier">Șantier</span></b><span><span id="ceas">--:--</span> <button id="setari" style="background:none;border:0;font-size:26px;vertical-align:middle">⚙️</button></span></header>
 <main>
   <div class="row">
     <div id="camWrap"><video id="cam" autoplay playsinline muted></video><div id="camMsg">Pornesc camera…</div></div>
@@ -70,6 +70,7 @@
       <input class="cauta" id="cObiectText" placeholder="ce anume?">
     </div>
     <div class="row" style="margin-top:12px"><button class="b ok" id="da" style="flex:2;font-size:22px">✅ CONFIRM</button><button class="b no" id="nu" style="flex:1">✖ Anulează</button></div>
+    <div id="lipsa" style="color:#fbbf24;font-weight:700;font-size:18px;margin-top:10px"></div>
     <div class="bar"><i id="barI"></i></div>
   </div>
 
@@ -118,7 +119,7 @@ var server = {
 };
 
 /* ---------- pornire ---------- */
-if (!API || !CHEIE) arataEroare('Lipsește legătura cu tabelul. Deschide o dată adresa completă: …?api=ADRESA_APLICATIEI&k=CHEIA');
+if (!API || !CHEIE) arataEroare('Lipsește legătura cu tabelul. Apasă ⚙️ sus și lipește adresa aplicației (cea care se termină în /exec) și cheia.');
 else incarca();
 setInterval(function () { var d = new Date(); el('ceas').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()); }, 1000);
 try { navigator.wakeLock && navigator.wakeLock.request('screen'); } catch (e) {}
@@ -127,9 +128,23 @@ document.addEventListener('visibilitychange', function () { try { if (!document.
 function incarca() {
   server.init(function (r) {
     D = r; SANTIER = r.santier; el('santier').textContent = 'Șantier ' + r.santier;
+    el('err').style.display = 'none';
     randeazaListe();
-  }, eroare);
+  }, function (e) {
+    var x = el('err'); clearTimeout(x._t); x.style.display = 'block';
+    x.textContent = '❌ Nu pot citi datele din tabel (' + ((e && e.message) || e) + '). Apasă ⚙️ sus și lipește din nou adresa aplicației (cea care se termină în /exec). Adresa folosită acum: ' + (API || '—');
+  });
 }
+el('setari').onclick = function () {
+  var a = prompt('Adresa aplicației (se termină în /exec):', API || '');
+  if (a === null) return;
+  a = a.trim().replace(/\?.*$/, '');
+  var k = prompt('Cheia de acces:', CHEIE || '');
+  if (k === null) return;
+  var s = prompt('Șantierul acestui telefon:', SANTIER || 'Sighișoara');
+  API = mem('pontaj_api', a); CHEIE = mem('pontaj_k', k.trim()); SANTIER = mem('pontaj_s', (s || '').trim());
+  incarca();
+};
 
 Object.keys(ACT).forEach(function (k) {
   var b = document.createElement('button'); b.className = 'b'; b.textContent = ACT[k].t;
@@ -176,13 +191,14 @@ el('mic').onclick = function () {
   if (rec) { rec.stop(); return; }
   rec = new SR(); rec.lang = 'ro-RO'; rec.interimResults = true; rec.maxAlternatives = 1;
   el('mic').classList.add('asculta');
+  var ultim = '', procesat = false;
   rec.onresult = function (e) {
     var t = ''; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-    el('auzit').textContent = '„' + t + '”';
-    if (e.results[e.results.length - 1].isFinal) intelege(t);
+    ultim = t; el('auzit').textContent = '„' + t + '”';
+    if (e.results[e.results.length - 1].isFinal && !procesat) { procesat = true; intelege(t); }
   };
   rec.onerror = function (e) { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { el('text').focus(); arataEroare('Microfonul nu e permis aici – folosește 🎤 de pe tastatură în câmpul de text.'); } };
-  rec.onend = function () { rec = null; el('mic').classList.remove('asculta'); };
+  rec.onend = function () { rec = null; el('mic').classList.remove('asculta'); if (ultim && !procesat) { procesat = true; intelege(ultim); } };
   try { rec.start(); } catch (e) { rec = null; el('mic').classList.remove('asculta'); }
 };
 el('trimite').onclick = function () { var t = el('text').value.trim(); if (t) { el('auzit').textContent = '„' + t + '”'; intelege(t); el('text').value = ''; } };
@@ -193,7 +209,7 @@ var REG = [
   ['UTILAJ', /(gresat|uns|gresare|ungere).*(sters|curatat|spalat)|(sters|curatat|spalat).*(gresat|uns)|\butilaj(ul)?\b/],
   ['PLECAT', /(terminat programul|gata pe azi|gata programul)/],
   ['MATERIAL_PRIMIT', /\b(am primit|a venit materialul|au venit|a sosit|au sosit|am primit materialul)\b/],
-  ['MATERIAL_CERUT', /\b(am nevoie( de)?|avem nevoie( de)?|imi trebuie|ne trebuie|ne lipseste|ne lipsesc|imi lipseste|lipseste|lipsesc|cumparati( mi| ne)?|sa (mi|ne) (cumparati|luati|aduceti)|comandati|cer)\b/],
+  ['MATERIAL_CERUT', /\b(am nevoie( de)?|avem nevoie( de)?|imi trebuie|ne trebuie|ne lipseste|ne lipsesc|imi lipseste|lipseste|lipsesc|cumparati( mi| ne)?|sa (mi|ne) (cumparati|luati|aduceti)|comandati|cer|trebuie sa (mi |ne |i |se )?(cumpere|cumparati|cumpar|luati|aduceti|comandati)|sa (se |mi |ne |i )?cumpere|de cumparat|vreau|imi trebe|ne trebe|lipsa|cump[a-z]*)\b/],
   ['ADUS', /\b(am adus|aduc inapoi|am returnat|returnez|am pus inapoi|am predat|predau|am lasat inapoi)\b/],
   ['LUAT', /\b(am luat|iau|imprumut|am imprumutat|scot|am scos)\b/],
   ['PLECAT', /\b(am plecat|plec|plecat|ies|am iesit|la revedere|ma duc acasa)\b/],
@@ -204,6 +220,7 @@ function intelege(text) {
   var n = norm(text), act = null, poz = -1, lung = 0;
   for (var i = 0; i < REG.length; i++) { var m = n.match(REG[i][1]); if (m) { act = REG[i][0]; poz = m.index; lung = m[0].length; break; } }
   var inainte = poz > 0 ? n.slice(0, poz) : n, dupa = poz >= 0 ? n.slice(poz + lung).trim() : '';
+  if (act === 'MATERIAL_CERUT') dupa = dupa.replace(/^(sa |si )*(imi |ne |mi |i |se )?(cump[a-z]*|luati|aduceti|comandati)\s+/, '');
   dupa = dupa.replace(/^(de|cu|la|pe|un|o|niste|si)\s+/, '');
   if (act === 'MATERIAL_CERUT') dupa = text.trim().split(/\s+/).slice(-dupa.split(' ').filter(Boolean).length).join(' ');
   var cand = cautaOm(inainte.trim() ? inainte : n);
@@ -283,8 +300,10 @@ function randeazaConf() {
   var gata = st.nume && st.actiune && (!tip || (tip === 'scula' && (st.obiect || el('cObiectText').value.trim())) ||
              (tip === 'material' && el('cObiectText').value.trim()) || (tip === 'materialDeschis' && st.obiect));
   el('da').disabled = !gata; el('da').style.opacity = gata ? 1 : .4;
+  el('lipsa').textContent = gata ? '' : (!st.nume ? '👆 Alege numele de mai sus' : !st.actiune ? '👇 Alege ce ai făcut din butoanele de jos' :
+    tip === 'scula' ? '✍️ Scrie sau alege scula' : tip === 'material' ? '✍️ Scrie ce material trebuie cumpărat' : '👆 Alege din listă');
   opresteTimer();
-  if (gata && (st.candidati || []).length && st.text) pornesteTimer(5);
+  if (gata && (st.candidati || []).length && st.text) { pornesteTimer(5); el('lipsa').textContent = '⏳ Se confirmă singur în 5 secunde…'; }
 }
 
 function listaNume() {
