@@ -52,7 +52,7 @@
 <main>
   <div class="hero">
     <div id="camWrap"><video id="cam" autoplay playsinline muted></video><div id="camMsg">Pornesc camera…</div></div>
-    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat flexul” • „…am nevoie de discuri”</small></button>
+    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat scula” • „…am nevoie de discuri”</small></button>
   </div>
   <p id="auzit"></p>
   <div class="txt"><input id="text" placeholder="sau scrie / dictează cu tastatura aici…" autocomplete="off"><button class="b p" id="trimite">OK</button></div>
@@ -93,8 +93,8 @@ var stare = null, timer = null, stream = null, rec = null;
 var ACT = {
   VENIT: { t: '✅ AM VENIT', obiect: false },
   PLECAT: { t: '🏁 AM PLECAT', obiect: false },
-  LUAT: { t: '🔧 AM LUAT SCULA', obiect: 'scula' },
-  ADUS: { t: '↩️ AM ADUS SCULA', obiect: 'scula' },
+  LUAT: { t: '🔧 AM LUAT SCULA', obiect: null },
+  ADUS: { t: '↩️ AM RETURNAT SCULA', obiect: null },
   UTILAJ: { t: '🛢️ AM GRESAT ȘI ȘTERS UTILAJUL', obiect: false },
   MATERIAL_CERUT: { t: '🛒 AM NEVOIE DE', obiect: 'material' },
   MATERIAL_PRIMIT: { t: '📦 AM PRIMIT MATERIALUL', obiect: 'materialDeschis' }
@@ -172,7 +172,7 @@ var server = {
 };
 
 /* ---------- pornire ---------- */
-if (!API || !CHEIE) arataEroare('Lipsește legătura cu tabelul. Apasă ⚙️ sus și lipește adresa aplicației (cea care se termină în /exec) și cheia.');
+if (!API || !CHEIE) arataEroare('Lipsește legătura cu tabelul. Deschide o dată adresa completă: …?api=ADRESA_APLICATIEI&k=CHEIA');
 else incarca();
 setInterval(function () { var d = new Date(); el('ceas').textContent = pad(d.getHours()) + ':' + pad(d.getMinutes()); }, 1000);
 try { navigator.wakeLock && navigator.wakeLock.request('screen'); } catch (e) {}
@@ -264,7 +264,7 @@ var REG = [
   ['PLECAT', /(terminat programul|gata pe azi|gata programul)/],
   ['MATERIAL_PRIMIT', /\b(am primit|a venit materialul|au venit|a sosit|au sosit|am primit materialul)\b/],
   ['MATERIAL_CERUT', /\b(am nevoie( de)?|avem nevoie( de)?|imi trebuie|ne trebuie|ne lipseste|ne lipsesc|imi lipseste|lipseste|lipsesc|cumparati( mi| ne)?|sa (mi|ne) (cumparati|luati|aduceti)|comandati|cer|trebuie sa (mi |ne |i |se )?(cumpere|cumparati|cumpar|luati|aduceti|comandati)|sa (se |mi |ne |i )?cumpere|de cumparat|vreau|imi trebe|ne trebe|lipsa|cump[a-z]*)\b/],
-  ['ADUS', /\b(am adus|aduc inapoi|am returnat|returnez|am pus inapoi|am predat|predau|am lasat inapoi)\b/],
+  ['ADUS', /\b(am adus|aduc inapoi|am returnat|returnat|returnez|am dat inapoi|dau inapoi|am pus inapoi|am predat|predau|am lasat inapoi)\b/],
   ['LUAT', /\b(am luat|iau|imprumut|am imprumutat|scot|am scos)\b/],
   ['PLECAT', /\b(am plecat|plec|plecat|ies|am iesit|la revedere|ma duc acasa)\b/],
   ['VENIT', /\b(am venit|am ajuns|venit|sosit|am intrat|intru|bun[ae] dimineata|incep)\b/]
