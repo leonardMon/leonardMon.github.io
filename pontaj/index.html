@@ -80,6 +80,7 @@
   </div>
 
   <div class="card"><h3>🛒 De cumpărat (cereri deschise)</h3><ul class="lista" id="lMat"><li><small>—</small></li></ul></div>
+  <p id="metoda" style="color:#475569;font-size:12px;text-align:center"></p>
   <input type="file" id="fotoInput" accept="image/*" capture="user" class="ascuns">
 </main>
 
@@ -105,31 +106,64 @@ API = mem('pontaj_api', Q.get('api'));
 CHEIE = mem('pontaj_k', Q.get('k'));
 SANTIER = mem('pontaj_s', Q.get('s'));
 
-// JSONP: <script src> nu e blocat de regulile CORS ale browserului
-function jsonp(url, ms) {
+// Citire fără conturi Google atașate (altfel Google se încurcă la mai multe conturi pe telefon).
+// Se încearcă pe rând 3 metode; cea care merge se ține minte.
+function jsonp(url, ms, anonim) {
   return new Promise(function (ok, fail) {
     var cb = 'cb' + Date.now() + Math.floor(Math.random() * 1e6), sc = document.createElement('script'), t;
+    if (anonim) sc.crossOrigin = 'anonymous';
     window[cb] = function (d) { clearTimeout(t); delete window[cb]; sc.remove(); ok(d); };
-    sc.onerror = function () { clearTimeout(t); delete window[cb]; sc.remove(); fail(new Error('nu răspunde serverul Google')); };
-    t = setTimeout(function () { delete window[cb]; sc.remove(); fail(new Error('timp expirat')); }, ms || 25000);
+    sc.onerror = function () { clearTimeout(t); delete window[cb]; sc.remove(); fail(new Error('script')); };
+    t = setTimeout(function () { delete window[cb]; sc.remove(); fail(new Error('timp expirat')); }, ms || 20000);
     sc.src = url + (url.indexOf('?') < 0 ? '?' : '&') + 'cb=' + cb;
     document.head.appendChild(sc);
   });
 }
+var METODE = {
+  fetch: function (url, ms) { return fetch(url, { credentials: 'omit', cache: 'no-store' }).then(function (r) { return r.json(); }); },
+  anonim: function (url, ms) { return jsonp(url, ms, true); },
+  script: function (url, ms) { return jsonp(url, ms, false); }
+};
+var metoda = mem('pontaj_metoda', '') || '';
+// două forme ale aceleiași adrese: /macros/s/… și /a/macros/scmonolit.ro/s/… (pe unele telefoane merge doar una)
+function adrese() {
+  var a = [API], alt = /\/a\/macros\/[^/]+\/s\//.test(API) ? API.replace(/\/a\/macros\/[^/]+\/s\//, '/macros/s/') : API.replace('/macros/s/', '/a/macros/scmonolit.ro/s/');
+  if (alt !== API) a.push(alt);
+  var bun = mem('pontaj_api_ok', ''); if (bun && a.indexOf(bun) >= 0) a.sort(function (x) { return x === bun ? -1 : 1; });
+  return a;
+}
+var APIBUN = '';
+function citeste(cale, ms) {
+  var incercari = [], erori = [];
+  adrese().forEach(function (u) { (metoda ? [metoda] : ['fetch', 'anonim', 'script']).forEach(function (m) { incercari.push([u, m]); }); });
+  return incercari.reduce(function (pr, im) {
+    return pr.catch(function () {
+      return METODE[im[1]](im[0] + cale, ms).then(function (d) {
+        APIBUN = im[0]; mem('pontaj_api_ok', im[0]);
+        if (metoda !== im[1]) { metoda = im[1]; mem('pontaj_metoda', im[1]); }
+        el('metoda').textContent = 'legătură: ' + im[1] + (im[0].indexOf('/a/macros/') >= 0 ? ' (adresă cu domeniu)' : '');
+        return d;
+      }).catch(function (e) { erori.push(im[1] + (im[0].indexOf('/a/macros/') >= 0 ? '/domeniu' : '') + ': ' + e.message); throw e; });
+    });
+  }, Promise.reject()).catch(function () {
+    if (metoda) { metoda = ''; try { localStorage.removeItem('pontaj_metoda'); } catch (e) {} return citeste(cale, ms); }
+    throw new Error('nicio metodă nu merge – ' + erori.join('; '));
+  });
+}
 var server = {
   init: function (ok, fail) {
-    jsonp(API + '?api=init&k=' + encodeURIComponent(CHEIE) + '&s=' + encodeURIComponent(SANTIER))
+    citeste('?api=init&k=' + encodeURIComponent(CHEIE) + '&s=' + encodeURIComponent(SANTIER))
       .then(function (j) { j.ok ? ok(j.r) : fail(new Error(j.eroare)); }).catch(fail);
   },
   trimite: function (p, ok, fail) {
     var id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8), incercari = 0;
     function verifica() {
-      jsonp(API + '?api=rez&id=' + id, 15000).then(function (j) {
+      citeste('?api=rez&id=' + id, 15000).then(function (j) {
         if (j.asteapta) { if (++incercari > 20) return fail(new Error('nu am primit confirmarea – verifică în tabel')); return setTimeout(verifica, 1500); }
         j.ok ? ok(j.r) : fail(new Error(j.eroare));
       }).catch(function (e) { if (++incercari > 20) fail(e); else setTimeout(verifica, 1500); });
     }
-    fetch(API, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: CHEIE, p: p, id: id }) })
+    fetch(APIBUN || API, { method: 'POST', mode: 'no-cors', credentials: 'omit', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: CHEIE, p: p, id: id }) })
       .then(function () { setTimeout(verifica, 800); })
       .catch(function () { setTimeout(verifica, 800); });
   }
@@ -160,6 +194,7 @@ el('setari').onclick = function () {
   if (k === null) return;
   var s = prompt('Șantierul acestui telefon:', SANTIER || 'Sighișoara');
   API = mem('pontaj_api', a); CHEIE = mem('pontaj_k', k.trim()); SANTIER = mem('pontaj_s', (s || '').trim());
+  metoda = ''; try { localStorage.removeItem('pontaj_metoda'); } catch (e) {}
   incarca();
 };
 
