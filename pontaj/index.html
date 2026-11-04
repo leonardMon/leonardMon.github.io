@@ -52,7 +52,7 @@
 <main>
   <div class="hero">
     <div id="camWrap"><video id="cam" autoplay playsinline muted></video><div id="camMsg">Pornesc camera…</div></div>
-    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat scula” • „…am nevoie de discuri”</small></button>
+    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat flexul și bormașina” • „…am nevoie de discuri”</small></button>
   </div>
   <p id="auzit"></p>
   <div class="txt"><input id="text" placeholder="sau scrie / dictează cu tastatura aici…" autocomplete="off"><button class="b p" id="trimite">OK</button></div>
@@ -87,14 +87,14 @@
 </main>
 
 <script>
-var CHEIE = '', SANTIER = '', D = { oameni: [], scule: [], materiale: [] };
+var CHEIE = '', SANTIER = '', D = { oameni: [], luate: [], materiale: [] };
 var stare = null, timer = null, stream = null, rec = null;
 
 var ACT = {
   VENIT: { t: '✅ AM VENIT', obiect: false },
   PLECAT: { t: '🏁 AM PLECAT', obiect: false },
-  LUAT: { t: '🔧 AM LUAT SCULA', obiect: null },
-  ADUS: { t: '↩️ AM RETURNAT SCULA', obiect: null },
+  LUAT: { t: '🔧 AM LUAT', obiect: 'scula' },
+  ADUS: { t: '↩️ AM RETURNAT', obiect: 'scula' },
   UTILAJ: { t: '🛢️ AM GRESAT ȘI ȘTERS UTILAJUL', obiect: false },
   MATERIAL_CERUT: { t: '🛒 AM NEVOIE DE', obiect: 'material' },
   MATERIAL_PRIMIT: { t: '📦 AM PRIMIT MATERIALUL', obiect: 'materialDeschis' }
@@ -276,7 +276,7 @@ function intelege(text) {
   var inainte = poz > 0 ? n.slice(0, poz) : n, dupa = poz >= 0 ? n.slice(poz + lung).trim() : '';
   if (act === 'MATERIAL_CERUT') dupa = dupa.replace(/^(sa |si )*(imi |ne |mi |i |se )?(cump[a-z]*|luati|aduceti|comandati)\s+/, '');
   dupa = dupa.replace(/^(de|cu|la|pe|un|o|niste|si)\s+/, '');
-  if (act === 'MATERIAL_CERUT') dupa = text.trim().split(/\s+/).slice(-dupa.split(' ').filter(Boolean).length).join(' ');
+  if (act === 'MATERIAL_CERUT' || act === 'LUAT' || act === 'ADUS') dupa = dupa ? text.trim().split(/\s+/).slice(-dupa.split(' ').filter(Boolean).length).join(' ') : '';
   var cand = cautaOm(inainte.trim() ? inainte : n);
   if (!cand.length && poz >= 0) cand = cautaOm(n);
   porneste({ nume: cand.length === 1 || (cand.length > 1 && cand[0].s > cand[1].s) ? cand[0].o.nume : null, candidati: cand.slice(0, 6), actiune: act, obiectText: dupa, text: text });
@@ -300,19 +300,13 @@ function cautaOm(t) {
 
 function cautaObiect(tip, t) {
   var lista = [];
-  if (tip === 'scula') lista = D.scule.map(function (x) {
-    return { id: x.id, txt: x.id + ' · ' + x.den + (x.model ? ' – ' + x.model : '') + ' · 📍' + (x.loc || '?') + (x.laCine ? ' · 👷 ' + x.laCine : ''),
-             cheie: x.id + ' ' + String(+String(x.id).replace(/\D/g, '')) + ' ' + x.den + ' ' + x.model + ' ' + x.cat + ' ' + x.serie,
-             bonus: (stare && stare.actiune === 'ADUS' ? (x.laCine && stare.nume && norm(x.laCine) === norm(stare.nume) ? 3 : (x.laCine ? 1 : 0))
-                                                        : (norm(x.loc) === norm(SANTIER) ? 1 : 0) - (x.laCine ? 1 : 0)) };
-  });
   if (tip === 'materialDeschis') lista = D.materiale.map(function (x) { return { id: x.rand, txt: x.material + ' (' + x.nume + ', ' + x.data + ')', cheie: x.material }; });
   var q = norm(t).split(' ').filter(function (w) { return w.length >= 3 || /\d/.test(w); });
   return lista.map(function (x) {
     var k = ' ' + norm(x.cheie) + ' ', s = 0;
     q.forEach(function (w) { if (k.indexOf(' ' + w) >= 0) s += 2; else if (w.length >= 5 && k.indexOf(w.slice(0, 4)) >= 0) s += 1; });
     return { x: x, s: s, b: x.bonus || 0 };
-  }).filter(function (a) { return a.s > 0 || (!q.length && (tip !== 'scula' || a.b >= 3)); })
+  }).filter(function (a) { return a.s > 0 || !q.length; })
     .map(function (a) { if (a.s > 0) a.s += a.b * 0.5; return a; }).sort(function (a, b) { return b.s - a.s; });
 }
 
@@ -341,21 +335,34 @@ function randeazaConf() {
   var tip = st.actiune && ACT[st.actiune].obiect;
   el('cObiectWrap').classList.toggle('ascuns', !tip);
   if (tip) {
+    var luateDeEl = (D.luate || []).filter(function (x) { return st.nume && norm(x.nume) === norm(st.nume); });
     if (!el('cObiectText').value && st.obiectText) el('cObiectText').value = st.obiectText;
-    el('cObiectText').placeholder = { scula: 'ce sculă? (nume, model sau nr. din inventar)', material: 'ce material / cât?', materialDeschis: 'ce material ai primit?' }[tip];
+    if (!el('cObiectText').value && st.actiune === 'ADUS' && luateDeEl.length === 1) el('cObiectText').value = luateDeEl[0].scula;
+    el('cObiectText').placeholder = { scula: 'ce sculă? (ex. flex, bormașină – mai multe cu virgulă)', material: 'ce material / cât?', materialDeschis: 'ce material ai primit?' }[tip];
     var box = el('cObiect'); box.innerHTML = '';
-    if (tip !== 'material' && tip !== 'text') {
+    if (tip === 'scula' && st.actiune === 'ADUS' && luateDeEl.length) {
+      // sculele pe care le are luate omul – apasă ca să le adaugi
+      box.appendChild(Object.assign(document.createElement('small'), { textContent: 'Are luate: ', style: 'color:#94a3b8;align-self:center' }));
+      luateDeEl.forEach(function (x) {
+        var inText = norm(el('cObiectText').value).indexOf(norm(x.scula)) >= 0;
+        box.appendChild(chip(x.scula + ' · ' + x.ora, inText, function () {
+          var v = el('cObiectText').value.trim();
+          el('cObiectText').value = inText ? v : (v ? v + ', ' : '') + x.scula; randeazaConf();
+        }));
+      });
+    }
+    if (tip === 'materialDeschis') {
       var r = cautaObiect(tip, el('cObiectText').value).slice(0, 8);
       if (!st.obiect && r.length && (r.length === 1 || r[0].s > r[1].s) && r[0].s > 0) st.obiect = r[0].x;
       r.forEach(function (a) { box.appendChild(chip(a.x.txt, st.obiect && st.obiect.id === a.x.id, function () { st.obiect = a.x; randeazaConf(); })); });
-      if (!r.length) box.innerHTML = '<small style="color:#fca5a5">' + (tip === 'scula' ? 'Nu găsesc scula în inventar – scrie numele, modelul sau numărul (ex. 46).' : 'Nimic deschis pe listă.') + '</small>';
+      if (!r.length) box.innerHTML = '<small style="color:#fca5a5">Nimic deschis pe listă.</small>';
     }
   }
-  var gata = st.nume && st.actiune && (!tip || (tip === 'scula' && (st.obiect || el('cObiectText').value.trim())) ||
+  var gata = st.nume && st.actiune && (!tip || (tip === 'scula' && el('cObiectText').value.trim()) ||
              (tip === 'material' && el('cObiectText').value.trim()) || (tip === 'materialDeschis' && st.obiect));
   el('da').disabled = !gata; el('da').style.opacity = gata ? 1 : .4;
   el('lipsa').textContent = gata ? '' : (!st.nume ? '👆 Alege numele de mai sus' : !st.actiune ? '👇 Alege ce ai făcut din butoanele de jos' :
-    tip === 'scula' ? '✍️ Scrie sau alege scula' : tip === 'material' ? '✍️ Scrie ce material trebuie cumpărat' : '👆 Alege din listă');
+    tip === 'scula' ? (st.actiune === 'ADUS' ? '👆 Apasă ce ai returnat sau scrie scula' : '✍️ Scrie ce sculă ai luat (ex. flex)') : tip === 'material' ? '✍️ Scrie ce material trebuie cumpărat' : '👆 Alege din listă');
   opresteTimer();
   if (gata && (st.candidati || []).length && st.text) { pornesteTimer(5); el('lipsa').textContent = '⏳ Se confirmă singur în 5 secunde…'; }
 }
@@ -392,7 +399,7 @@ function confirma() {
   if (!stare || el('da').disabled) return;
   var st = stare, tip = ACT[st.actiune].obiect, txt = el('cObiectText').value.trim();
   var p = { santier: SANTIER, nume: st.nume, actiune: st.actiune, text: st.text || '' };
-  if (tip === 'scula') { p.sculaText = txt || (st.obiect ? st.obiect.txt : ''); if (st.obiect) { p.sculaId = st.obiect.id; p.sculaDen = st.obiect.txt.split(' · ')[1] || st.obiect.txt; } }
+  if (tip === 'scula') p.sculaText = txt;
   if (tip === 'material') p.materialText = txt;
   if (tip === 'materialDeschis') { p.materialText = txt || (st.obiect && st.obiect.txt); if (st.obiect) p.materialRand = st.obiect.id; }
   el('da').disabled = true; el('da').textContent = '⏳ Salvez…';
