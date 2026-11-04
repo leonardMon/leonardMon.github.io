@@ -105,16 +105,33 @@ API = mem('pontaj_api', Q.get('api'));
 CHEIE = mem('pontaj_k', Q.get('k'));
 SANTIER = mem('pontaj_s', Q.get('s'));
 
+// JSONP: <script src> nu e blocat de regulile CORS ale browserului
+function jsonp(url, ms) {
+  return new Promise(function (ok, fail) {
+    var cb = 'cb' + Date.now() + Math.floor(Math.random() * 1e6), sc = document.createElement('script'), t;
+    window[cb] = function (d) { clearTimeout(t); delete window[cb]; sc.remove(); ok(d); };
+    sc.onerror = function () { clearTimeout(t); delete window[cb]; sc.remove(); fail(new Error('nu răspunde serverul Google')); };
+    t = setTimeout(function () { delete window[cb]; sc.remove(); fail(new Error('timp expirat')); }, ms || 25000);
+    sc.src = url + (url.indexOf('?') < 0 ? '?' : '&') + 'cb=' + cb;
+    document.head.appendChild(sc);
+  });
+}
 var server = {
   init: function (ok, fail) {
-    fetch(API + '?api=init&k=' + encodeURIComponent(CHEIE) + '&s=' + encodeURIComponent(SANTIER))
-      .then(function (r) { return r.json(); })
+    jsonp(API + '?api=init&k=' + encodeURIComponent(CHEIE) + '&s=' + encodeURIComponent(SANTIER))
       .then(function (j) { j.ok ? ok(j.r) : fail(new Error(j.eroare)); }).catch(fail);
   },
   trimite: function (p, ok, fail) {
-    fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: CHEIE, p: p }) })
-      .then(function (r) { return r.json(); })
-      .then(function (j) { j.ok ? ok(j.r) : fail(new Error(j.eroare)); }).catch(fail);
+    var id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8), incercari = 0;
+    function verifica() {
+      jsonp(API + '?api=rez&id=' + id, 15000).then(function (j) {
+        if (j.asteapta) { if (++incercari > 20) return fail(new Error('nu am primit confirmarea – verifică în tabel')); return setTimeout(verifica, 1500); }
+        j.ok ? ok(j.r) : fail(new Error(j.eroare));
+      }).catch(function (e) { if (++incercari > 20) fail(e); else setTimeout(verifica, 1500); });
+    }
+    fetch(API, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: CHEIE, p: p, id: id }) })
+      .then(function () { setTimeout(verifica, 800); })
+      .catch(function () { setTimeout(verifica, 800); });
   }
 };
 
