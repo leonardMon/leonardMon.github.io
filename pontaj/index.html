@@ -380,7 +380,7 @@ function randeazaConf() {
   opresteTimer();
   var necunoscut = tip === 'scula' && numere(el('cObiectText').value).some(function (n) { return !(D.inv || []).some(function (x) { return x[0] === n; }); });
   if (gata && necunoscut && (D.inv || []).length) { el('lipsa').textContent = '⚠️ Un număr nu există – verifică numărul de pe sculă'; return; }
-  if (gata && (st.candidati || []).length && st.text) { pornesteTimer(2); el('lipsa').textContent = '⏳ Se confirmă singur în 2 secunde…'; }
+  if (gata && (st.candidati || []).length && st.text) { el('lipsa').textContent = '⏳ Salvez…'; setTimeout(confirma, 0); }  // a spus numele → se trimite imediat
 }
 
 function listaNume() {
