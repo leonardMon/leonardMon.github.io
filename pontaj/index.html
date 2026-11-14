@@ -52,7 +52,7 @@
 <main>
   <div class="hero">
     <div id="camWrap"><video id="cam" autoplay playsinline muted></video><div id="camMsg">Pornesc camera…</div></div>
-    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat flexul și bormașina” • „…am nevoie de discuri”</small></button>
+    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat 5 și 7” • „…am nevoie de discuri”</small></button>
   </div>
   <p id="auzit"></p>
   <div class="txt"><input id="text" placeholder="sau scrie / dictează cu tastatura aici…" autocomplete="off"><button class="b p" id="trimite">OK</button></div>
@@ -87,7 +87,7 @@
 </main>
 
 <script>
-var CHEIE = '', SANTIER = '', D = { oameni: [], luate: [], materiale: [] };
+var CHEIE = '', SANTIER = '', D = { oameni: [], luate: [], inv: [], materiale: [] };
 var stare = null, timer = null, stream = null, rec = null;
 
 var ACT = {
@@ -161,13 +161,13 @@ var server = {
     var id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8), incercari = 0;
     function verifica() {
       citeste('?api=rez&id=' + id, 15000).then(function (j) {
-        if (j.asteapta) { if (++incercari > 20) return fail(new Error('nu am primit confirmarea – verifică în tabel')); return setTimeout(verifica, 1500); }
+        if (j.asteapta) { if (++incercari > 20) return fail(new Error('nu am primit confirmarea – verifică în tabel')); return setTimeout(verifica, 900); }
         j.ok ? ok(j.r) : fail(new Error(j.eroare));
-      }).catch(function (e) { if (++incercari > 20) fail(e); else setTimeout(verifica, 1500); });
+      }).catch(function (e) { if (++incercari > 20) fail(e); else setTimeout(verifica, 900); });
     }
     fetch(APIBUN || API, { method: 'POST', mode: 'no-cors', credentials: 'include', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: CHEIE, p: p, id: id }) })
-      .then(function () { setTimeout(verifica, 800); })
-      .catch(function () { setTimeout(verifica, 800); });
+      .then(function () { setTimeout(verifica, 500); })
+      .catch(function () { setTimeout(verifica, 500); });
   }
 };
 
@@ -337,18 +337,28 @@ function randeazaConf() {
   if (tip) {
     var luateDeEl = (D.luate || []).filter(function (x) { return st.nume && norm(x.nume) === norm(st.nume); });
     if (!el('cObiectText').value && st.obiectText) el('cObiectText').value = st.obiectText;
-    if (!el('cObiectText').value && st.actiune === 'ADUS' && luateDeEl.length === 1) el('cObiectText').value = luateDeEl[0].scula;
-    el('cObiectText').placeholder = { scula: 'ce sculă? (ex. flex, bormașină – mai multe cu virgulă)', material: 'ce material / cât?', materialDeschis: 'ce material ai primit?' }[tip];
+    if (!el('cObiectText').value && st.actiune === 'ADUS' && luateDeEl.length === 1) el('cObiectText').value = luateDeEl[0].nr ? String(luateDeEl[0].nr) : luateDeEl[0].scula;
+    el('cObiectText').placeholder = { scula: 'numerele de pe scule (ex. 5 și 7)', material: 'ce material / cât?', materialDeschis: 'ce material ai primit?' }[tip];
     var box = el('cObiect'); box.innerHTML = '';
     if (tip === 'scula' && st.actiune === 'ADUS' && luateDeEl.length) {
       // sculele pe care le are luate omul – apasă ca să le adaugi
       box.appendChild(Object.assign(document.createElement('small'), { textContent: 'Are luate: ', style: 'color:#94a3b8;align-self:center' }));
       luateDeEl.forEach(function (x) {
-        var inText = norm(el('cObiectText').value).indexOf(norm(x.scula)) >= 0;
+        var inText = x.nr ? numere(el('cObiectText').value).indexOf(x.nr) >= 0 : norm(el('cObiectText').value).indexOf(norm(x.scula)) >= 0;
         box.appendChild(chip(x.scula + ' · ' + x.ora, inText, function () {
           var v = el('cObiectText').value.trim();
-          el('cObiectText').value = inText ? v : (v ? v + ', ' : '') + x.scula; randeazaConf();
+          el('cObiectText').value = inText ? v : (v ? v + ', ' : '') + (x.nr ? x.nr : x.scula); randeazaConf();
         }));
+      });
+    }
+    if (tip === 'scula') {
+      // ce înseamnă numerele spuse – ca omul să vadă dacă s-a înțeles bine
+      var harta = {}; (D.inv || []).forEach(function (x) { harta[x[0]] = x; });
+      numere(el('cObiectText').value).forEach(function (n) {
+        var x = harta[n], d = document.createElement('div');
+        d.style.cssText = 'width:100%;font-size:20px;font-weight:700;padding:4px 0;color:' + (x && !x[2] ? '#86efac' : '#fca5a5');
+        d.textContent = x ? '🔧 ' + n + ' = ' + x[1] + (x[2] ? ' (e la defecte!)' : '') : '⚠️ ' + n + ' = nu există în inventar';
+        box.appendChild(d);
       });
     }
     if (tip === 'materialDeschis') {
@@ -362,8 +372,10 @@ function randeazaConf() {
              (tip === 'material' && el('cObiectText').value.trim()) || (tip === 'materialDeschis' && st.obiect));
   el('da').disabled = !gata; el('da').style.opacity = gata ? 1 : .4;
   el('lipsa').textContent = gata ? '' : (!st.nume ? '👆 Alege numele de mai sus' : !st.actiune ? '👇 Alege ce ai făcut din butoanele de jos' :
-    tip === 'scula' ? (st.actiune === 'ADUS' ? '👆 Apasă ce ai returnat sau scrie scula' : '✍️ Scrie ce sculă ai luat (ex. flex)') : tip === 'material' ? '✍️ Scrie ce material trebuie cumpărat' : '👆 Alege din listă');
+    tip === 'scula' ? (st.actiune === 'ADUS' ? '👆 Apasă ce ai returnat sau scrie scula' : '✍️ Spune sau scrie numerele de pe scule (ex. 5 și 7)') : tip === 'material' ? '✍️ Scrie ce material trebuie cumpărat' : '👆 Alege din listă');
   opresteTimer();
+  var necunoscut = tip === 'scula' && numere(el('cObiectText').value).some(function (n) { return !(D.inv || []).some(function (x) { return x[0] === n; }); });
+  if (gata && necunoscut && (D.inv || []).length) { el('lipsa').textContent = '⚠️ Un număr nu există – verifică numărul de pe sculă'; return; }
   if (gata && (st.candidati || []).length && st.text) { pornesteTimer(5); el('lipsa').textContent = '⏳ Se confirmă singur în 5 secunde…'; }
 }
 
@@ -410,7 +422,7 @@ function confirma() {
       arataRez(r); incarca();
     }, function (e) { el('da').textContent = '✅ CONFIRM'; el('da').disabled = false; eroare(e); });
   };
-  if (st.actiune === 'VENIT') fotografiaza().then(trimite); else trimite('');  // poza doar dimineața, la venire
+  trimite('');  // fără poze – camera rămâne doar pe ecran, ca pontajul să meargă repede
 }
 
 /* ---------- rezultat + liste ---------- */
@@ -439,6 +451,30 @@ function arataEroare(t) { var x = el('err'); x.textContent = t; x.style.display 
 function el(id) { return document.getElementById(id); }
 function pad(n) { return ('0' + n).slice(-2); }
 function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+/** „5 cu 7”, „cinci și șapte”, „douăzeci și trei” → [5, 7] / [23] (la fel ca pe server) */
+function numere(text) {
+  var U = { unu: 1, unul: 1, una: 1, doi: 2, doua: 2, trei: 3, patru: 4, cinci: 5, sase: 6, sapte: 7, opt: 8, noua: 9 };
+  var T = { zece: 10, unsprezece: 11, unspe: 11, doisprezece: 12, douasprezece: 12, doispe: 12, treisprezece: 13, treispe: 13,
+            paisprezece: 14, paispe: 14, cincisprezece: 15, cinspe: 15, saisprezece: 16, saispe: 16, saptesprezece: 17, saptispe: 17,
+            optsprezece: 18, optispe: 18, nouasprezece: 19, nouaspe: 19 };
+  var Z = { douazeci: 20, treizeci: 30, patruzeci: 40, cincizeci: 50, saizeci: 60, saptezeci: 70, optzeci: 80, nouazeci: 90 };
+  var tok = norm(text).split(' ').filter(Boolean), out = [], cur = null, last = '';
+  function gata() { if (cur !== null) out.push(cur); cur = null; last = ''; }
+  for (var i = 0; i < tok.length; i++) {
+    var t = tok[i];
+    if (/^\d+$/.test(t)) { gata(); out.push(+t); continue; }
+    if (t === 'o' && tok[i + 1] === 'suta') continue;
+    if (t === 'suta') { gata(); cur = 100; last = 'h'; continue; }
+    if (t === 'sute' && last === 'u') { cur *= 100; last = 'h'; continue; }
+    if (U[t]) { if (cur !== null && (last === 'h' || last === 'si')) cur += U[t]; else { gata(); cur = U[t]; } last = 'u'; continue; }
+    if (T[t]) { if (cur !== null && last === 'h') cur += T[t]; else { gata(); cur = T[t]; } last = 'te'; continue; }
+    if (Z[t]) { if (cur !== null && last === 'h') cur += Z[t]; else { gata(); cur = Z[t]; } last = 't'; continue; }
+    if (t === 'si' && (last === 't' || last === 'h') && U[tok[i + 1]]) { last = 'si'; continue; }
+    gata();
+  }
+  gata();
+  return out.filter(function (n) { return n > 0 && n < 10000; });
+}
 function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 function chip(t, sel, fn) { var b = document.createElement('button'); b.className = 'chip' + (sel ? ' sel' : ''); b.textContent = t; b.onclick = fn; return b; }
 </script>
