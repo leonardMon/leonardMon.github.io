@@ -52,7 +52,7 @@
 <main>
   <div class="hero">
     <div id="camWrap"><video id="cam" autoplay playsinline muted></video><div id="camMsg">Pornesc camera…</div></div>
-    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, am venit” • „…am plecat” • „…am luat 5 și 7” • „…am nevoie de discuri”</small></button>
+    <button id="mic">🎤 APASĂ ȘI VORBEȘTE<small>„Grosu Mihai, prezent” (sau „am venit”) • „…am plecat” • „…am luat 5 și 7” • „…am nevoie de discuri”</small></button>
   </div>
   <p id="auzit"></p>
   <div class="txt"><input id="text" placeholder="sau scrie / dictează cu tastatura aici…" autocomplete="off"><button class="b p" id="trimite">OK</button></div>
@@ -159,6 +159,10 @@ var server = {
   },
   trimite: function (p, ok, fail) {
     var id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8), incercari = 0;
+    if (D.v >= 2) {   // server nou: o singură cerere, răspunsul vine direct (mult mai rapid)
+      return citeste('?api=inreg&k=' + encodeURIComponent(CHEIE) + '&id=' + id + '&p=' + encodeURIComponent(JSON.stringify(p)), 25000)
+        .then(function (j) { j.ok ? ok(j.r) : fail(new Error(j.eroare)); }).catch(fail);
+    }
     function verifica() {
       citeste('?api=rez&id=' + id, 15000).then(function (j) {
         if (j.asteapta) { if (++incercari > 20) return fail(new Error('nu am primit confirmarea – verifică în tabel')); return setTimeout(verifica, 900); }
@@ -267,7 +271,7 @@ var REG = [
   ['ADUS', /\b(am adus|aduc inapoi|am returnat|returnat|returnez|am dat inapoi|dau inapoi|am pus inapoi|am predat|predau|am lasat inapoi)\b/],
   ['LUAT', /\b(am luat|iau|imprumut|am imprumutat|scot|am scos)\b/],
   ['PLECAT', /\b(am plecat|plec|plecat|ies|am iesit|la revedere|ma duc acasa)\b/],
-  ['VENIT', /\b(am venit|am ajuns|venit|sosit|am intrat|intru|bun[ae] dimineata|incep)\b/]
+  ['VENIT', /\b(am venit|am ajuns|venit|sosit|am intrat|intru|bun[ae] dimineata|incep|prezent|sunt prezent|sunt aici)\b/]
 ];
 
 function intelege(text) {
@@ -376,7 +380,7 @@ function randeazaConf() {
   opresteTimer();
   var necunoscut = tip === 'scula' && numere(el('cObiectText').value).some(function (n) { return !(D.inv || []).some(function (x) { return x[0] === n; }); });
   if (gata && necunoscut && (D.inv || []).length) { el('lipsa').textContent = '⚠️ Un număr nu există – verifică numărul de pe sculă'; return; }
-  if (gata && (st.candidati || []).length && st.text) { pornesteTimer(5); el('lipsa').textContent = '⏳ Se confirmă singur în 5 secunde…'; }
+  if (gata && (st.candidati || []).length && st.text) { pornesteTimer(2); el('lipsa').textContent = '⏳ Se confirmă singur în 2 secunde…'; }
 }
 
 function listaNume() {
